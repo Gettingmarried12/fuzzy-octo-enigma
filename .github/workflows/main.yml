@@ -73,6 +73,37 @@ jobs:
           echo "NETBIRD_IP=$nbIP" >> $env:GITHUB_ENV
           Write-Host "Detected NetBird IP: $nbIP"
 
+      - name: Create RDP User and Password
+        run: |
+          # Generate a random secure password
+          Add-Type -AssemblyName System.Security
+          $charSet = @(
+              [char[]](65..90),    # Uppercase letters
+              [char[]](97..122),   # Lowercase letters
+              [char[]](48..57),    # Numbers
+              [char[]](33..47),    # Special characters
+              [char[]](58..64),
+              [char[]](91..96),
+              [char[]](123..126)
+          )
+
+          $passwordChars = @()
+          $passwordChars += $charSet[0] | Get-Random -Count 4   # Uppercase
+          $passwordChars += $charSet[1] | Get-Random -Count 4   # Lowercase
+          $passwordChars += $charSet[2] | Get-Random -Count 4   # Numbers
+          $passwordChars += $charSet[3] | Get-Random -Count 4   # Special chars
+          $password = -join ($passwordChars | Sort-Object { Get-Random })
+
+          # Create the RDP user with the secure password
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          New-LocalUser -Name "RDP" -Password $securePass -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member "RDP"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
+
+          # Output the password to be used in the next step
+          echo "RDP_CREDS=User: RDP | Password: $password" >> $env:GITHUB_ENV
+          Write-Host "RDP user created with password: $password"
+
       - name: Verify RDP Accessibility
         run: |
           Write-Host "NetBird IP: $env:NETBIRD_IP"
